@@ -1,0 +1,91 @@
+version: "3.9"
+
+name: TamaelaTazkia
+
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx_server
+    ports:
+      - "8082:80"  # Mengakses nginx di localhost:8082
+    volumes:
+      - ./nginx/html:/usr/share/nginx/html  # Mount direktori lokal untuk konten web
+    networks:
+      - server_network  # Menghubungkan Nginx ke jaringan server
+    configs:
+      - source: nginx_config
+        target: /etc/nginx_config/nginx.conf  # Menggunakan file konfigurasi Nginx kustom
+    deploy:
+      resources:
+        limits:
+          memory: 2G  # Batas maksimum memori untuk container Nginx
+        reservations:
+          memory: 1G  # Memori minimum yang dipesan untuk container Nginx
+    restart: always  # Restart container secara otomatis jika gagal
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest  # Menggunakan image phpMyAdmin terbaru
+    container_name: phpmyadmin_server
+    ports:
+      - "8081:80"  # Mengakses phpMyAdmin di localhost:8081
+    environment:
+      PMA_HOST: mysql_server  # Nama container MySQL
+      PMA_PORT: 3306  # Port MySQL yang terhubung ke phpMyAdmin
+    networks:
+      - server_network  # Menghubungkan phpMyAdmin ke jaringan server
+    restart: always  # Restart container secara otomatis jika gagal
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+
+  mysql:
+    image: mysql:8.0.40-debian
+    container_name: mysql_server
+    ports:
+      - "3306:3306"  # Mengakses mysql di localhost:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: mellakia  # Kata sandi root MySQL
+      MYSQL_USER: username
+      MYSQL_PASSWORD: mellakia
+      MYSQL_DATABASE: SQL
+    volumes:
+      - mysql_data:/var/lib/mysql  # Mount volume untuk menyimpan data MySQL
+    networks:
+      - server_network  # Menghubungkan MySQL ke jaringan server
+    configs:
+      - source: mysql_config
+        target: /etc/mysql_config/mysql.conf  # Menggunakan file konfigurasi MySQL kustom
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 2G  # Batas maksimum memori untuk container MySQL
+        reservations:
+          memory: 1G  # Memori minimum yang dipesan untuk container MySQL
+    restart: always  # Restart container secara otomatis jika gagal
+
+networks:
+  server_network:
+    driver: bridge  # Menggunakan driver bridge untuk jaringan lokal
+
+volumes:
+  mysql_data:
+    driver: local  # Gunakan driver volume lokal
+    driver_opts:
+      type: none
+      o: bind
+      device: ./mysql/mysql_volume  # Mount direktori lokal untuk data MySQL
+
+configs:
+  nginx_config:
+    file: ./nginx/nginx_config/nginx.conf  # File konfigurasi Nginx
+  php_config:
+    file: ./php/php.ini  # File konfigurasi PHP
+  mysql_config:
+    file: ./mysql/mysql_config/mysql.conf  # File konfigurasi MySQLCREATE USER
